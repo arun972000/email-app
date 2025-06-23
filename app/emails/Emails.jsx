@@ -11,9 +11,11 @@ import {
   Form,
   Row,
   Col,
+  Button,
 } from "react-bootstrap";
 import axios from "axios";
 import { FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
+import Link from "next/link";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -31,8 +33,8 @@ const EmailSubscriptionTable = () => {
       const result = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data.data)
-        ? response.data.data
-        : [];
+          ? response.data.data
+          : [];
 
       setSubscribers(result);
     } catch (err) {
@@ -132,8 +134,19 @@ const EmailSubscriptionTable = () => {
 
   return (
     <div className="container mt-4">
-      <h4 className="mb-3">Email Subscribers</h4>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h3>Bulk Email Sender</h3>
 
+        <Link href="/">
+          <Button variant="secondary">← Back to Home</Button>
+        </Link>
+      </div>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h4 className="mb-3">Email Subscribers</h4>
+        <Link href="/admin/upload-excel">
+          <Button variant="primary">Upload Emails</Button>
+        </Link>
+      </div>
       <Row className="mb-3 align-items-center">
         <Col md={6}>
           <Form.Control
@@ -166,8 +179,8 @@ const EmailSubscriptionTable = () => {
                     {sortOrder === "none"
                       ? "Active First"
                       : sortOrder === "asc"
-                      ? "Inactive First"
-                      : "No Sorting"}
+                        ? "Inactive First"
+                        : "No Sorting"}
                   </Tooltip>
                 }
               >

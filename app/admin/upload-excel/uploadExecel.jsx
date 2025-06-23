@@ -1,6 +1,7 @@
 "use client";
 
 import axios from "axios";
+import Link from "next/link";
 import React, { useState } from "react";
 import { Form, Button, Alert, Container, Spinner } from "react-bootstrap";
 
@@ -68,6 +69,12 @@ const ExcelUpload = () => {
 
   return (
     <Container className="mt-5">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+        <h3>Bulk Email Sender</h3>
+        <Link href="/">
+          <Button variant="secondary">← Back to Home</Button>
+        </Link>
+      </div>
       <h4>Upload Excel File</h4>
       <Form onSubmit={handleUpload} className="mt-3">
         <Form.Group controlId="formFile" className="mb-3">

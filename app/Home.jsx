@@ -17,9 +17,11 @@ export default function Home() {
                     <Link href="/emails/email-send" className={styles.secondary}>
                         Send Emails
                     </Link>
-                    <Link href="/emails/upload" className={styles.secondary}>
-                        Upload Emails
+                    <Link href="/emails/email-status" className={styles.secondary}>
+                        Track Emails
                     </Link>
+
+
                 </nav>
             </main>
         </div>
