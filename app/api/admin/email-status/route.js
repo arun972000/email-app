@@ -17,7 +17,7 @@ export async function GET(req) {
   }
 
   try {
-    // Get paginated records
+    // ✅ Get paginated records
     const [records] = await db.query(
       `SELECT SQL_CALC_FOUND_ROWS messageId, email, subject, status, link, ip, userAgent, eventTime
        FROM email_events
@@ -27,15 +27,30 @@ export async function GET(req) {
       [from, to, limit, offset]
     );
 
-    // Get total number of matching rows
+    // ✅ Get total count
     const [totalResult] = await db.query(`SELECT FOUND_ROWS() AS total`);
     const total = totalResult[0].total;
+
+    // ✅ Get counts by status
+    const [statusRows] = await db.query(
+      `SELECT status, COUNT(*) AS count
+       FROM email_events
+       WHERE DATE(eventTime) BETWEEN ? AND ?
+       GROUP BY status`,
+      [from, to]
+    );
+
+    const counts = {};
+    statusRows.forEach(row => {
+      counts[row.status] = row.count;
+    });
 
     return NextResponse.json({
       records,
       total,
       page,
       totalPages: Math.ceil(total / limit),
+      counts, // ✅ Add status counts here
     });
   } catch (err) {
     console.error("DB query error:", err);
