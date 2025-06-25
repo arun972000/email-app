@@ -88,7 +88,6 @@ export default function EmailTrackingPage() {
         <div className="col-md-12">
           <div className="card shadow-sm">
             <div className="card-body d-flex flex-wrap gap-3 justify-content-start align-items-center">
-              <h6 className="mb-0 me-3">📊 Summary:</h6>
               <SummaryBadge label="Total Events" value={records.length} color="dark" />
               <SummaryBadge
                 label="Unique Emails"
