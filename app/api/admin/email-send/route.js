@@ -1,5 +1,6 @@
 import { sendBulkEmails } from "@/lib/awsclient";
 import { NextResponse } from "next/server";
+import db from "@/lib/db"; // adjust path if needed
 
 export async function POST(req) {
   try {
@@ -10,10 +11,21 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: "Missing fields" }, { status: 400 });
     }
 
-    // 👇 You can replace this with your actual subscriber list
-    const recipients = ["arunpandian972000@gmail.com"];
+    // ✅ Fetch recipients from MySQL
+    const [rows] = await db.query("SELECT email FROM emails WHERE subscribe != 0");
+    const recipients = rows.map(row => row.email);
 
-    for (const email of recipients) {
+    // ✅ Insert "arunpandian972000@gmail.com" after every 100 recipients
+    const finalRecipients = [];
+    recipients.forEach((email, index) => {
+      finalRecipients.push(email);
+      if ((index + 1) % 2 === 0) {
+        finalRecipients.push("ramkumarveeraiya@gmail.com");
+      }
+    });
+
+    // ✅ Send to all final recipients
+    for (const email of finalRecipients) {
       const encoded = encodeURIComponent(email);
       const html = message
         .replace("{{unsubscribe_link}}", `http://localhost:5000/unsubscribe?email=${encoded}`)
