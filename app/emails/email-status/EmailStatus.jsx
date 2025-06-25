@@ -95,13 +95,13 @@ export default function EmailTrackingPage() {
                 value={new Set(records.map((r) => r.email)).size}
                 color="secondary"
               />
-              <SummaryBadge label="Delivered" value={statusCounts.Delivery || 0} color="primary" />
-              <SummaryBadge label="Opened" value={statusCounts.Open || 0} color="info" />
               <SummaryBadge
-                label="Not Opened"
-                value={(statusCounts.Delivery || 0) - (statusCounts.Open || 0)}
-                color="warning"
+                label="Total Delivered"
+                value={(statusCounts.Delivery || 0) + (statusCounts.Open || 0)}
+                color="primary"
               />
+              <SummaryBadge label="Delivered(Not Opened)" value={statusCounts.Delivery || 0} color="primary" />
+              <SummaryBadge label="Opened" value={statusCounts.Open || 0} color="info" />
               <SummaryBadge label="Clicked" value={statusCounts.Click || 0} color="success" />
               <SummaryBadge label="Bounced" value={statusCounts.Bounce || 0} color="danger" />
               <SummaryBadge label="Complaints" value={statusCounts.Complaint || 0} color="danger" />
