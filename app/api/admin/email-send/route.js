@@ -8,18 +8,22 @@ export async function POST(req) {
     const { subject, message } = body;
 
     if (!subject || !message) {
-      return NextResponse.json({ success: false, error: "Missing fields" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "Missing fields" },
+        { status: 400 }
+      );
     }
 
     // ✅ Fetch recipients from MySQL
-    const [rows] = await db.query("SELECT email FROM emails WHERE subscribe != 0");
-    const recipients = rows.map(row => row.email);
-
+    const [rows] = await db.query(
+      "SELECT email FROM emails WHERE subscribe != 0"
+    );
+    const recipients = rows.map((row) => row.email);
 
     const finalRecipients = [];
     recipients.forEach((email, index) => {
       finalRecipients.push(email);
-      if ((index + 1) % 2 === 0) {
+      if ((index + 1) % 100 === 0) {
         finalRecipients.push("ramkumarveeraiya@gmail.com");
       }
     });
@@ -28,7 +32,10 @@ export async function POST(req) {
     for (const email of finalRecipients) {
       const encoded = encodeURIComponent(email);
       const html = message
-        .replace("{{unsubscribe_link}}", `https://newsletter.raceautoindia.com/subscription/unsubscribe?email=${encoded}`)
+        .replace(
+          "{{unsubscribe_link}}",
+          `https://newsletter.raceautoindia.com/subscription/unsubscribe?email=${encoded}`
+        )
         .replace("{{visible_email}}", email);
 
       await sendBulkEmails([email], subject, html);
@@ -37,6 +44,9 @@ export async function POST(req) {
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Bulk send failed", err);
-    return NextResponse.json({ success: false, error: "Internal error" }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Internal error" },
+      { status: 500 }
+    );
   }
 }
