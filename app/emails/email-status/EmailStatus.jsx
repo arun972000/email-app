@@ -77,25 +77,37 @@ export default function EmailTrackingPage() {
           />
         </div>
         <div className="col-md-3 d-flex align-items-end">
-          <Button variant="primary" onClick={() => fetchRecords()} disabled={!fromDate || !toDate}>
+          <Button variant="primary" onClick={fetchRecords} disabled={!fromDate || !toDate}>
             🔍 Filter
           </Button>
         </div>
       </div>
 
-      {/* 🔢 Status Summary Badges */}
+      {/* 📊 Summary Stats */}
       <div className="row mb-4">
-        {Object.keys(statusCounts).length > 0 ? (
-          Object.entries(statusCounts).map(([status, count]) => (
-            <div className="col-auto" key={status}>
-              <span className={`badge bg-${statusColor(status)} fs-6`}>
-                {status}: {count}
-              </span>
+        <div className="col-md-12">
+          <div className="card shadow-sm">
+            <div className="card-body d-flex flex-wrap gap-3 justify-content-start align-items-center">
+              <h6 className="mb-0 me-3">📊 Summary:</h6>
+              <SummaryBadge label="Total Events" value={records.length} color="dark" />
+              <SummaryBadge
+                label="Unique Emails"
+                value={new Set(records.map((r) => r.email)).size}
+                color="secondary"
+              />
+              <SummaryBadge label="Delivered" value={statusCounts.Delivery || 0} color="primary" />
+              <SummaryBadge label="Opened" value={statusCounts.Open || 0} color="info" />
+              <SummaryBadge
+                label="Not Opened"
+                value={(statusCounts.Delivery || 0) - (statusCounts.Open || 0)}
+                color="warning"
+              />
+              <SummaryBadge label="Clicked" value={statusCounts.Click || 0} color="success" />
+              <SummaryBadge label="Bounced" value={statusCounts.Bounce || 0} color="danger" />
+              <SummaryBadge label="Complaints" value={statusCounts.Complaint || 0} color="danger" />
             </div>
-          ))
-        ) : (
-          <p>No status data available for selected range.</p>
-        )}
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -118,7 +130,7 @@ export default function EmailTrackingPage() {
             </thead>
             <tbody>
               {records.map((rec, idx) => (
-                <tr key={rec.id || `${rec.messageId}-${idx}`}>
+                <tr key={rec.messageId + idx}>
                   <td>{(page - 1) * limit + idx + 1}</td>
                   <td>{rec.email}</td>
                   <td>
@@ -126,9 +138,13 @@ export default function EmailTrackingPage() {
                       {rec.status}
                     </span>
                   </td>
-                  <td style={{ maxWidth: "200px", overflowWrap: "break-word" }}>{rec.link || "-"}</td>
+                  <td style={{ maxWidth: "200px", overflowWrap: "break-word" }}>
+                    {rec.link || "-"}
+                  </td>
                   <td>{rec.ip || "-"}</td>
-                  <td style={{ maxWidth: "200px", overflowWrap: "break-word" }}>{rec.userAgent || "-"}</td>
+                  <td style={{ maxWidth: "200px", overflowWrap: "break-word" }}>
+                    {rec.userAgent || "-"}
+                  </td>
                   <td>{new Date(rec.eventTime).toLocaleString()}</td>
                 </tr>
               ))}
@@ -158,5 +174,14 @@ export default function EmailTrackingPage() {
         </>
       )}
     </div>
+  );
+}
+
+// ✅ Reusable badge component
+function SummaryBadge({ label, value, color = "secondary" }) {
+  return (
+    <span className={`badge bg-${color} fs-6`}>
+      {label}: <strong>{value}</strong>
+    </span>
   );
 }
