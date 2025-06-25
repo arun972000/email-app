@@ -56,36 +56,26 @@ export async function POST(req) {
         console.log(`ℹ️ Other event: ${eventType} for ${email}`);
       }
 
-      // Check current status
-      const [rows] = await db.query(`SELECT status FROM email_events WHERE messageId = ?`, [messageId]);
-      const currentStatus = rows[0]?.status;
+      // ✅ Check if messageId + status already exists
+      const [rows] = await db.query(
+        `SELECT id FROM email_events WHERE messageId = ? AND status = ?`,
+        [messageId, eventType]
+      );
 
-      const canUpdate =
-        eventType === "Click" ||
-        (eventType === "Open" && currentStatus !== "Click") ||
-        (eventType === "Delivery" && !["Click", "Open"].includes(currentStatus)) ||
-        eventType === "Bounce" ||
-        eventType === "Complaint";
-
-      if (canUpdate) {
-        await db.query(
-          `INSERT INTO email_events (
-             messageId, email, status, link, ip, userAgent, eventTime
-           ) VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE
-             email = VALUES(email),
-             status = VALUES(status),
-             link = VALUES(link),
-             ip = VALUES(ip),
-             userAgent = VALUES(userAgent),
-             eventTime = VALUES(eventTime)`,
-          [messageId, email, eventType, link, ip, userAgent, new Date(eventTime)]
-        );
-        console.log(`✅ Status updated to '${eventType}' for ${email}`);
-      } else {
-        console.log(`⚠️ Skipped '${eventType}' for ${email} — current is '${currentStatus}'`);
+      if (rows.length > 0) {
+        console.log(`⚠️ Skipped duplicate ${eventType} for messageId ${messageId}`);
+        return NextResponse.json({ message: "Duplicate skipped" });
       }
 
+      // ✅ Insert new event
+      await db.query(
+        `INSERT INTO email_events (
+           messageId, email, status, link, ip, userAgent, eventTime
+         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [messageId, email, eventType, link, ip, userAgent, new Date(eventTime)]
+      );
+
+      console.log(`✅ ${eventType} recorded for ${email}`);
       return NextResponse.json({ message: "Event recorded" });
     }
 
