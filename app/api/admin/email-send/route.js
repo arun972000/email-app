@@ -15,7 +15,7 @@ export async function POST(req) {
     const [rows] = await db.query("SELECT email FROM emails WHERE subscribe != 0");
     const recipients = rows.map(row => row.email);
 
-    // ✅ Insert "arunpandian972000@gmail.com" after every 100 recipients
+
     const finalRecipients = [];
     recipients.forEach((email, index) => {
       finalRecipients.push(email);
@@ -28,7 +28,7 @@ export async function POST(req) {
     for (const email of finalRecipients) {
       const encoded = encodeURIComponent(email);
       const html = message
-        .replace("{{unsubscribe_link}}", `http://localhost:5000/unsubscribe?email=${encoded}`)
+        .replace("{{unsubscribe_link}}", `https://newsletter.raceautoindia.com/subscription/unsubscribe?email=${encoded}`)
         .replace("{{visible_email}}", email);
 
       await sendBulkEmails([email], subject, html);
