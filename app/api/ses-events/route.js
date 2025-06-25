@@ -13,6 +13,15 @@ async function parseBody(req) {
   return Buffer.concat(chunks).toString("utf-8");
 }
 
+// Priority of statuses from lowest to highest
+const statusRank = {
+  Delivery: 1,
+  Open: 2,
+  Click: 3,
+  Bounce: 4,
+  Complaint: 5,
+};
+
 export async function POST(req) {
   try {
     const messageType = req.headers.get("x-amz-sns-message-type");
@@ -56,27 +65,39 @@ export async function POST(req) {
         console.log(`ℹ️ Other event: ${eventType} for ${email}`);
       }
 
-      // ✅ Check if messageId + status already exists
+      // Fetch existing row (if any)
       const [rows] = await db.query(
-        `SELECT id FROM email_events WHERE messageId = ? AND status = ?`,
-        [messageId, eventType]
+        `SELECT status FROM email_events WHERE messageId = ?`,
+        [messageId]
       );
+      const existing = rows[0];
 
-      if (rows.length > 0) {
-        console.log(`⚠️ Skipped duplicate ${eventType} for messageId ${messageId}`);
-        return NextResponse.json({ message: "Duplicate skipped" });
+      const incomingRank = statusRank[eventType] ?? 0;
+      const existingRank = statusRank[existing?.status] ?? 0;
+
+      if (!existing) {
+        // No record exists yet — insert
+        await db.query(
+          `INSERT INTO email_events (
+            messageId, email, status, link, ip, userAgent, eventTime
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [messageId, email, eventType, link, ip, userAgent, new Date(eventTime)]
+        );
+        console.log(`✅ New status '${eventType}' recorded for ${email}`);
+      } else if (incomingRank > existingRank) {
+        // Incoming status is higher priority — update
+        await db.query(
+          `UPDATE email_events
+           SET status = ?, link = ?, ip = ?, userAgent = ?, eventTime = ?
+           WHERE messageId = ?`,
+          [eventType, link, ip, userAgent, new Date(eventTime), messageId]
+        );
+        console.log(`🔁 Updated status to '${eventType}' for ${email}`);
+      } else {
+        console.log(`⏩ Skipped '${eventType}' for ${email} — current: '${existing.status}'`);
       }
 
-      // ✅ Insert new event
-      await db.query(
-        `INSERT INTO email_events (
-           messageId, email, status, link, ip, userAgent, eventTime
-         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [messageId, email, eventType, link, ip, userAgent, new Date(eventTime)]
-      );
-
-      console.log(`✅ ${eventType} recorded for ${email}`);
-      return NextResponse.json({ message: "Event recorded" });
+      return NextResponse.json({ message: "Processed" });
     }
 
     return NextResponse.json({ message: "Ignored" });
