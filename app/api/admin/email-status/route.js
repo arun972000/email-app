@@ -6,8 +6,9 @@ export async function GET(req) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const page = parseInt(searchParams.get("page") || "1", 10);
-  const limit = parseInt(searchParams.get("limit") || "25", 10);
+  const limit = parseInt(searchParams.get("limit") || "100", 10);
   const offset = (page - 1) * limit;
+  const status = searchParams.get("status");
 
   if (!from || !to) {
     return NextResponse.json(
@@ -17,26 +18,38 @@ export async function GET(req) {
   }
 
   try {
-    // ✅ Get paginated records
+    const queryParams = [from, to];
+    let statusCondition = "";
+    if (status && status !== "All") {
+      statusCondition = " AND status = ?";
+      queryParams.push(status);
+    }
+
+    // ✅ Paginated records with optional status
     const [records] = await db.query(
-      `SELECT SQL_CALC_FOUND_ROWS messageId, email, subject, status, link, ip, userAgent, eventTime
-       FROM email_events
-       WHERE DATE(eventTime) BETWEEN ? AND ?
-       ORDER BY eventTime DESC
-       LIMIT ? OFFSET ?`,
-      [from, to, limit, offset]
+      `
+      SELECT SQL_CALC_FOUND_ROWS messageId, email, subject, status, link, ip, userAgent, eventTime
+      FROM email_events
+      WHERE DATE(eventTime) BETWEEN ? AND ?
+      ${statusCondition}
+      ORDER BY eventTime DESC
+      LIMIT ? OFFSET ?
+      `,
+      [...queryParams, limit, offset]
     );
 
-    // ✅ Get total count
+    // ✅ Total count of filtered records
     const [totalResult] = await db.query(`SELECT FOUND_ROWS() AS total`);
     const total = totalResult[0].total;
 
-    // ✅ Get counts by status
+    // ✅ Counts for all statuses (not filtered, for summary UI)
     const [statusRows] = await db.query(
-      `SELECT status, COUNT(*) AS count
-       FROM email_events
-       WHERE DATE(eventTime) BETWEEN ? AND ?
-       GROUP BY status`,
+      `
+      SELECT status, COUNT(*) AS count
+      FROM email_events
+      WHERE DATE(eventTime) BETWEEN ? AND ?
+      GROUP BY status
+      `,
       [from, to]
     );
 
@@ -50,7 +63,7 @@ export async function GET(req) {
       total,
       page,
       totalPages: Math.ceil(total / limit),
-      counts, // ✅ Add status counts here
+      counts,
     });
   } catch (err) {
     console.error("DB query error:", err);

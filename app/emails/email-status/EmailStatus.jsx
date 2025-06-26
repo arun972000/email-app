@@ -4,22 +4,21 @@ import React, { useState, useEffect } from "react";
 import { Table, Spinner, Button, Form } from "react-bootstrap";
 
 export default function EmailTrackingPage() {
-  const [statusFilter, setStatusFilter] = useState("All");
-
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [limit] = useState(25);
+  const [limit] = useState(100);
   const [totalPages, setTotalPages] = useState(1);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [statusCounts, setStatusCounts] = useState({});
 
   const fetchRecords = async () => {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/admin/email-status?from=${fromDate}&to=${toDate}&page=${page}&limit=${limit}`
+        `/api/admin/email-status?from=${fromDate}&to=${toDate}&page=${page}&limit=${limit}&status=${statusFilter}`
       );
       const data = await res.json();
       setRecords(data.records || []);
@@ -38,7 +37,7 @@ export default function EmailTrackingPage() {
     if (fromDate && toDate) {
       fetchRecords();
     }
-  }, [fromDate, toDate, page]);
+  }, [fromDate, toDate, page, statusFilter]);
 
   const statusColor = (status) => {
     switch (status) {
@@ -57,28 +56,11 @@ export default function EmailTrackingPage() {
     }
   };
 
-  const filteredRecords = statusFilter === "All"
-    ? records
-    : records.filter((r) => r.status === statusFilter);
-
-
   return (
     <div className="container mt-4">
       <h4>📈 Email Event Tracking</h4>
-      <div className="row mb-3">
-        <div className="col-md-3">
-          <Form.Label>Status Filter</Form.Label>
-          <Form.Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="All">All</option>
-            <option value="Delivery">Delivered</option>
-            <option value="Open">Opened</option>
-            <option value="Click">Clicked</option>
-            <option value="Bounce">Bounced</option>
-            <option value="Complaint">Complaints</option>
-          </Form.Select>
-        </div>
-      </div>
 
+      {/* 🔎 Filters */}
       <div className="row mb-3">
         <div className="col-md-3">
           <Form.Label>From</Form.Label>
@@ -95,6 +77,23 @@ export default function EmailTrackingPage() {
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
           />
+        </div>
+        <div className="col-md-3">
+          <Form.Label>Status Filter</Form.Label>
+          <Form.Select
+            value={statusFilter}
+            onChange={(e) => {
+              setPage(1);
+              setStatusFilter(e.target.value);
+            }}
+          >
+            <option value="All">All</option>
+            <option value="Delivery">Delivered</option>
+            <option value="Open">Opened</option>
+            <option value="Click">Clicked</option>
+            <option value="Bounce">Bounced</option>
+            <option value="Complaint">Complaints</option>
+          </Form.Select>
         </div>
         <div className="col-md-3 d-flex align-items-end">
           <Button variant="primary" onClick={fetchRecords} disabled={!fromDate || !toDate}>
@@ -119,7 +118,7 @@ export default function EmailTrackingPage() {
                 value={(statusCounts.Delivery || 0) + (statusCounts.Open || 0)}
                 color="primary"
               />
-              <SummaryBadge label="Delivered(Not Opened)" value={statusCounts.Delivery || 0} color="primary" />
+              <SummaryBadge label="Delivered (Not Opened)" value={statusCounts.Delivery || 0} color="primary" />
               <SummaryBadge label="Opened" value={statusCounts.Open || 0} color="info" />
               <SummaryBadge label="Clicked" value={statusCounts.Click || 0} color="success" />
               <SummaryBadge label="Bounced" value={statusCounts.Bounce || 0} color="danger" />
@@ -129,6 +128,7 @@ export default function EmailTrackingPage() {
         </div>
       </div>
 
+      {/* 📋 Table */}
       {loading ? (
         <div className="text-center">
           <Spinner animation="border" />
@@ -148,7 +148,7 @@ export default function EmailTrackingPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredRecords.map((rec, idx) => (
+              {records.map((rec, idx) => (
                 <tr key={rec.messageId + idx}>
                   <td>{(page - 1) * limit + idx + 1}</td>
                   <td>{rec.email}</td>
@@ -162,16 +162,14 @@ export default function EmailTrackingPage() {
                   </td>
                   <td>{rec.ip || "-"}</td>
                   <td style={{ maxWidth: "200px", overflowWrap: "break-word" }}>
-                    {rec.userAgent || "-"}
-                  </td>
+                    {rec.userAgent || "-"}</td>
                   <td>{new Date(rec.eventTime).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
-
           </Table>
 
-          {/* Pagination */}
+          {/* 🔁 Pagination */}
           <div className="d-flex justify-content-between align-items-center">
             <Button
               variant="outline-secondary"
@@ -197,7 +195,7 @@ export default function EmailTrackingPage() {
   );
 }
 
-// ✅ Reusable badge component
+// ✅ Reusable summary badge
 function SummaryBadge({ label, value, color = "secondary" }) {
   return (
     <span className={`badge bg-${color} fs-6`}>
