@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { Table, Spinner, Button, Form } from "react-bootstrap";
 
 export default function EmailTrackingPage() {
+  const [statusFilter, setStatusFilter] = useState("All");
+
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -55,9 +57,27 @@ export default function EmailTrackingPage() {
     }
   };
 
+  const filteredRecords = statusFilter === "All"
+    ? records
+    : records.filter((r) => r.status === statusFilter);
+
+
   return (
     <div className="container mt-4">
       <h4>📈 Email Event Tracking</h4>
+      <div className="row mb-3">
+        <div className="col-md-3">
+          <Form.Label>Status Filter</Form.Label>
+          <Form.Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="All">All</option>
+            <option value="Delivery">Delivered</option>
+            <option value="Open">Opened</option>
+            <option value="Click">Clicked</option>
+            <option value="Bounce">Bounced</option>
+            <option value="Complaint">Complaints</option>
+          </Form.Select>
+        </div>
+      </div>
 
       <div className="row mb-3">
         <div className="col-md-3">
@@ -128,7 +148,7 @@ export default function EmailTrackingPage() {
               </tr>
             </thead>
             <tbody>
-              {records.map((rec, idx) => (
+              {filteredRecords.map((rec, idx) => (
                 <tr key={rec.messageId + idx}>
                   <td>{(page - 1) * limit + idx + 1}</td>
                   <td>{rec.email}</td>
@@ -148,6 +168,7 @@ export default function EmailTrackingPage() {
                 </tr>
               ))}
             </tbody>
+
           </Table>
 
           {/* Pagination */}
