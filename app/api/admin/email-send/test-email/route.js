@@ -14,8 +14,9 @@ export async function POST(req) {
         { status: 400 }
       );
     }
-    
-    const result = await sendBulkEmails(recipient, subject, message);
+    const recipients =[recipient]
+    console.log(recipients)
+    const result = await sendBulkEmails(recipients, subject, message);
 
     return NextResponse.json({ success: true, result }, { status: 200 });
   } catch (err) {
