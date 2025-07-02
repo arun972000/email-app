@@ -15,8 +15,16 @@ export async function POST(req) {
       );
     }
     const recipients =[recipient]
-    console.log(recipients)
-    const result = await sendBulkEmails(recipients, subject, message);
+
+    const encoded = encodeURIComponent(recipient);
+      const html = message
+        .replace(
+          "{{unsubscribe_link}}",
+          `https://newsletter.raceautoindia.com/subscription/unsubscribe?email=${encoded}`
+        )
+        .replace("{{visible_email}}", recipient);
+
+    const result = await sendBulkEmails(recipients, subject, html);
 
     return NextResponse.json({ success: true, result }, { status: 200 });
   } catch (err) {
