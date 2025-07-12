@@ -14,6 +14,7 @@ export default function EmailTrackingPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [statusCounts, setStatusCounts] = useState({});
   const [selectedBouncedEmails, setSelectedBouncedEmails] = useState([]);
+  const [fetchingAllBounce, setFetchingAllBounce] = useState(false);
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -65,11 +66,25 @@ export default function EmailTrackingPage() {
     );
   };
 
-  const selectAllBounced = () => {
-    const uniqueBouncedEmails = [
-      ...new Set(records.filter((r) => r.status === "Bounce").map((r) => r.email)),
-    ];
-    setSelectedBouncedEmails(uniqueBouncedEmails);
+  const fetchAllBouncedEmails = async () => {
+    if (!fromDate || !toDate) {
+      alert("Please select From and To dates first.");
+      return;
+    }
+    setFetchingAllBounce(true);
+    try {
+      const res = await fetch(
+        `/api/admin/email-status?from=${fromDate}&to=${toDate}&status=Bounce&page=1&limit=100000`
+      );
+      const data = await res.json();
+      const uniqueEmails = [...new Set((data.records || []).map((r) => r.email))];
+      setSelectedBouncedEmails(uniqueEmails);
+    } catch (error) {
+      console.error("Failed to fetch all bounced emails:", error);
+      alert("Failed to fetch all bounced emails.");
+    } finally {
+      setFetchingAllBounce(false);
+    }
   };
 
   const markInactive = async () => {
@@ -135,7 +150,11 @@ export default function EmailTrackingPage() {
           </Form.Select>
         </div>
         <div className="col-md-3 d-flex align-items-end">
-          <Button variant="primary" onClick={fetchRecords} disabled={!fromDate || !toDate}>
+          <Button
+            variant="primary"
+            onClick={fetchRecords}
+            disabled={!fromDate || !toDate}
+          >
             🔍 Filter
           </Button>
         </div>
@@ -170,8 +189,8 @@ export default function EmailTrackingPage() {
       {/* 🔘 Bulk Actions */}
       {records.length > 0 && (
         <div className="mb-3 d-flex gap-2">
-          <Button variant="warning" onClick={selectAllBounced}>
-            🎯 Select All Bounced Emails
+          <Button variant="warning" onClick={fetchAllBouncedEmails} disabled={fetchingAllBounce}>
+            {fetchingAllBounce ? "Fetching Bounced Emails..." : "🎯 Select All Bounced Emails"}
           </Button>
           <Button
             variant="danger"
