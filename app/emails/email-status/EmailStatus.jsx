@@ -13,6 +13,7 @@ export default function EmailTrackingPage() {
   const [toDate, setToDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [statusCounts, setStatusCounts] = useState({});
+  const [selectedBouncedEmails, setSelectedBouncedEmails] = useState([]);
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -53,6 +54,44 @@ export default function EmailTrackingPage() {
         return "warning";
       default:
         return "secondary";
+    }
+  };
+
+  const toggleEmailSelection = (email) => {
+    setSelectedBouncedEmails((prev) =>
+      prev.includes(email)
+        ? prev.filter((e) => e !== email)
+        : [...prev, email]
+    );
+  };
+
+  const selectAllBounced = () => {
+    const uniqueBouncedEmails = [
+      ...new Set(records.filter((r) => r.status === "Bounce").map((r) => r.email)),
+    ];
+    setSelectedBouncedEmails(uniqueBouncedEmails);
+  };
+
+  const markInactive = async () => {
+    if (selectedBouncedEmails.length === 0) return alert("No emails selected.");
+
+    try {
+      const res = await fetch("/api/admin/mark-inactive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails: selectedBouncedEmails }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || "Selected emails marked as inactive.");
+        setSelectedBouncedEmails([]);
+        fetchRecords();
+      } else {
+        alert(data.message || "Failed to mark as inactive.");
+      }
+    } catch (error) {
+      console.error("Error unsubscribing:", error);
+      alert("Error occurred while marking emails as inactive.");
     }
   };
 
@@ -128,6 +167,22 @@ export default function EmailTrackingPage() {
         </div>
       </div>
 
+      {/* 🔘 Bulk Actions */}
+      {records.length > 0 && (
+        <div className="mb-3 d-flex gap-2">
+          <Button variant="warning" onClick={selectAllBounced}>
+            🎯 Select All Bounced Emails
+          </Button>
+          <Button
+            variant="danger"
+            onClick={markInactive}
+            disabled={selectedBouncedEmails.length === 0}
+          >
+            🚫 Mark Selected as Inactive ({selectedBouncedEmails.length})
+          </Button>
+        </div>
+      )}
+
       {/* 📋 Table */}
       {loading ? (
         <div className="text-center">
@@ -148,24 +203,37 @@ export default function EmailTrackingPage() {
               </tr>
             </thead>
             <tbody>
-              {records.map((rec, idx) => (
-                <tr key={rec.messageId + idx}>
-                  <td>{(page - 1) * limit + idx + 1}</td>
-                  <td>{rec.email}</td>
-                  <td>
-                    <span className={`badge bg-${statusColor(rec.status)}`}>
-                      {rec.status}
-                    </span>
-                  </td>
-                  <td style={{ maxWidth: "200px", overflowWrap: "break-word" }}>
-                    {rec.link || "-"}
-                  </td>
-                  <td>{rec.ip || "-"}</td>
-                  <td style={{ maxWidth: "200px", overflowWrap: "break-word" }}>
-                    {rec.userAgent || "-"}</td>
-                  <td>{new Date(rec.eventTime).toLocaleString()}</td>
-                </tr>
-              ))}
+              {records.map((rec, idx) => {
+                const isBounced = rec.status === "Bounce";
+                const isChecked = selectedBouncedEmails.includes(rec.email);
+                return (
+                  <tr key={rec.messageId + idx}>
+                    <td>
+                      {isBounced && (
+                        <Form.Check
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleEmailSelection(rec.email)}
+                        />
+                      )}{" "}
+                      {(page - 1) * limit + idx + 1}
+                    </td>
+                    <td>{rec.email}</td>
+                    <td>
+                      <span className={`badge bg-${statusColor(rec.status)}`}>
+                        {rec.status}
+                      </span>
+                    </td>
+                    <td style={{ maxWidth: "200px", overflowWrap: "break-word" }}>
+                      {rec.link || "-"}
+                    </td>
+                    <td>{rec.ip || "-"}</td>
+                    <td style={{ maxWidth: "200px", overflowWrap: "break-word" }}>
+                      {rec.userAgent || "-"}</td>
+                    <td>{new Date(rec.eventTime).toLocaleString()}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
 
