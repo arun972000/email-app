@@ -11,6 +11,8 @@ import {
   Spinner,
   Card,
   Modal,
+  Tab,
+  Tabs,
 } from "react-bootstrap";
 import axios from "axios";
 import Link from "next/link";
@@ -35,6 +37,12 @@ const BulkEmailSender = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState("");
+
+  const [activeTab, setActiveTab] = useState("subscribers");
+  const [excelFile, setExcelFile] = useState(null);
+  const [excelSendStatus, setExcelSendStatus] = useState(null);
+  const [excelError, setExcelError] = useState(null);
+  const [excelLoading, setExcelLoading] = useState(false);
 
   const STATIC_PASSWORD = "raceauto@123";
 
@@ -120,6 +128,35 @@ const BulkEmailSender = () => {
     }
   };
 
+  const handleExcelUpload = async () => {
+    if (!excelFile || !subject || !htmlContent) return;
+
+    setExcelLoading(true);
+    setExcelSendStatus(null);
+    setExcelError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", excelFile);
+      formData.append("subject", subject);
+      formData.append("message", htmlContent);
+
+      const res = await axios.post("/api/admin/email-send/excel", formData);
+
+      if (res.data.success) {
+        setExcelSendStatus(res.data.message);
+        setExcelFile(null);
+      } else {
+        setExcelError(res.data.error || "Failed to send Excel emails.");
+      }
+    } catch (err) {
+      console.error("Excel send error:", err);
+      setExcelError(err.response?.data?.error || "Something went wrong.");
+    } finally {
+      setExcelLoading(false);
+    }
+  };
+
   return (
     <Container className="mt-5">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -134,24 +171,53 @@ const BulkEmailSender = () => {
         </div>
       </div>
 
-      <Row className="mb-4">
-        <Col md={12}>
-          <Card>
+      <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-4">
+        <Tab eventKey="subscribers" title="📬 Send to Subscribers">
+          {/* original send UI retained here */}
+          <Row className="mb-4">
+            <Col md={12}>
+              <Card>
+                <Card.Body>
+                  <h5>Subscribers Info</h5>
+                  {loadingSubs ? (
+                    <Spinner animation="border" />
+                  ) : (
+                    <>
+                      <p>✅ Subscribed: <strong>{subscribedCount}</strong></p>
+                      <p>❌ Unsubscribed: <strong>{unsubscribedCount}</strong></p>
+                      <p>📧 Total: <strong>{subscribers.length}</strong></p>
+                    </>
+                  )}
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </Tab>
+
+        <Tab eventKey="excel" title="📑 Send via Excel Upload">
+          <Card className="mb-4">
             <Card.Body>
-              <h5>Subscribers Info</h5>
-              {loadingSubs ? (
-                <Spinner animation="border" />
-              ) : (
-                <>
-                  <p>✅ Subscribed: <strong>{subscribedCount}</strong></p>
-                  <p>❌ Unsubscribed: <strong>{unsubscribedCount}</strong></p>
-                  <p>📧 Total: <strong>{subscribers.length}</strong></p>
-                </>
-              )}
+              <Form.Group className="mb-3">
+                <Form.Label>Upload Excel File</Form.Label>
+                <Form.Control type="file" accept=".xlsx,.xls" onChange={(e) => setExcelFile(e.target.files[0])} />
+                <Form.Text className="text-muted">
+                  ⚠️ Excel file should have a column named <strong>email</strong>, <strong>Email</strong>, or <strong>Email Address</strong>.
+                </Form.Text>
+              </Form.Group>
+
+              <Button
+                variant="success"
+                onClick={handleExcelUpload}
+                disabled={!excelFile || !subject || !htmlContent || excelLoading}
+              >
+                {excelLoading ? "Sending..." : "Send Emails from Excel"}
+              </Button>
+              {excelSendStatus && <Alert variant="success" className="mt-3">✅ {excelSendStatus}</Alert>}
+              {excelError && <Alert variant="danger" className="mt-3">❌ {excelError}</Alert>}
             </Card.Body>
           </Card>
-        </Col>
-      </Row>
+        </Tab>
+      </Tabs>
 
       <Row>
         <Col md={6}>
