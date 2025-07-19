@@ -5,7 +5,7 @@ import db from "@/lib/db"; // adjust path if needed
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { subject, message } = body;
+    const { subject, message, rateLimit } = body;
 
     if (!subject || !message) {
       return NextResponse.json(
@@ -38,7 +38,7 @@ export async function POST(req) {
         )
         .replace("{{visible_email}}", email);
 
-      await sendBulkEmails([email], subject, html);
+      await sendBulkEmails([email], subject, html, rateLimit);
     }
 
     return NextResponse.json({ success: true });

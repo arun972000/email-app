@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useState, useEffect } from "react";
 import { Table, Spinner, Button, Form } from "react-bootstrap";
@@ -24,7 +24,7 @@ export default function EmailTrackingPage() {
       );
       const data = await res.json();
       setRecords(data.records || []);
-      setTotalPages(Math.ceil(data.total / limit));
+      setTotalPages(Math.ceil((data.total || 0) / limit));
       setStatusCounts(data.counts || {});
     } catch (err) {
       console.error("Failed to fetch email records:", err);
@@ -39,6 +39,7 @@ export default function EmailTrackingPage() {
     if (fromDate && toDate) {
       fetchRecords();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromDate, toDate, page, statusFilter]);
 
   const statusColor = (status) => {
@@ -77,7 +78,9 @@ export default function EmailTrackingPage() {
         `/api/admin/email-status?from=${fromDate}&to=${toDate}&status=Bounce&page=1&limit=100000`
       );
       const data = await res.json();
-      const uniqueEmails = [...new Set((data.records || []).map((r) => r.email))];
+      const uniqueEmails = Array.from(
+        new Set((data.records || []).map((r) => r.email))
+      );
       setSelectedBouncedEmails(uniqueEmails);
     } catch (error) {
       console.error("Failed to fetch all bounced emails:", error);
@@ -88,8 +91,10 @@ export default function EmailTrackingPage() {
   };
 
   const markInactive = async () => {
-    if (selectedBouncedEmails.length === 0) return alert("No emails selected.");
-
+    if (selectedBouncedEmails.length === 0) {
+      alert("No emails selected.");
+      return;
+    }
     try {
       const res = await fetch("/api/admin/mark-inactive", {
         method: "POST",
@@ -110,11 +115,27 @@ export default function EmailTrackingPage() {
     }
   };
 
+  const downloadExcel = () => {
+    if (!fromDate || !toDate) {
+      alert("Please select From and To dates first.");
+      return;
+    }
+    const url = `/api/admin/email-status/excel?from=${fromDate}&to=${toDate}&status=${statusFilter}`;
+    window.open(url, "_blank");
+  };
+
+  // compute delivered as sum of Delivery, Open, Click, Complaint
+  const deliveredCount =
+    (statusCounts.Delivery || 0) +
+    (statusCounts.Open || 0) +
+    (statusCounts.Click || 0) +
+    (statusCounts.Complaint || 0);
+
   return (
     <div className="container mt-4">
-      <h4>📈 Email Event Tracking</h4>
+      <h4>Email Event Tracking</h4>
 
-      {/* 🔎 Filters */}
+      {/* Filters & Download */}
       <div className="row mb-3">
         <div className="col-md-3">
           <Form.Label>From</Form.Label>
@@ -155,54 +176,93 @@ export default function EmailTrackingPage() {
             onClick={fetchRecords}
             disabled={!fromDate || !toDate}
           >
-            🔍 Filter
+            Filter
+          </Button>
+          <Button
+            variant="success"
+            className="ms-2"
+            onClick={downloadExcel}
+            disabled={!fromDate || !toDate}
+          >
+            Download Report
           </Button>
         </div>
       </div>
 
-      {/* 📊 Summary Stats */}
+      {/* Summary Badges */}
       <div className="row mb-4">
-        <div className="col-md-12">
+        <div className="col">
           <div className="card shadow-sm">
-            <div className="card-body d-flex flex-wrap gap-3 justify-content-start align-items-center">
-              <SummaryBadge label="Total Events" value={records.length} color="dark" />
+            <div className="card-body d-flex flex-wrap gap-3">
+              <SummaryBadge
+                label="Total Events"
+                value={records.length}
+                color="dark"
+              />
               <SummaryBadge
                 label="Unique Emails"
                 value={new Set(records.map((r) => r.email)).size}
                 color="secondary"
               />
               <SummaryBadge
-                label="Total Delivered"
-                value={(statusCounts.Delivery || 0) + (statusCounts.Open || 0)}
+                label="Delivered"
+                value={deliveredCount}
                 color="primary"
               />
-              <SummaryBadge label="Delivered (Not Opened)" value={statusCounts.Delivery || 0} color="primary" />
-              <SummaryBadge label="Opened" value={statusCounts.Open || 0} color="info" />
-              <SummaryBadge label="Clicked" value={statusCounts.Click || 0} color="success" />
-              <SummaryBadge label="Bounced" value={statusCounts.Bounce || 0} color="danger" />
-              <SummaryBadge label="Complaints" value={statusCounts.Complaint || 0} color="danger" />
+              <SummaryBadge
+                label="Delivered (Not Opened)"
+                value={statusCounts.Delivery || 0}
+                color="primary"
+              />
+              <SummaryBadge
+                label="Opened"
+                value={statusCounts.Open || 0}
+                color="info"
+              />
+              <SummaryBadge
+                label="Clicked"
+                value={statusCounts.Click || 0}
+                color="success"
+              />
+              <SummaryBadge
+                label="Bounced"
+                value={statusCounts.Bounce || 0}
+                color="danger"
+              />
+              <SummaryBadge
+                label="Complaints"
+                value={statusCounts.Complaint || 0}
+                color="warning"
+              />
             </div>
           </div>
         </div>
       </div>
 
-      {/* 🔘 Bulk Actions */}
+      {/* Bulk Actions */}
       {records.length > 0 && (
         <div className="mb-3 d-flex gap-2">
-          <Button variant="warning" onClick={fetchAllBouncedEmails} disabled={fetchingAllBounce}>
-            {fetchingAllBounce ? "Fetching Bounced Emails..." : "🎯 Select All Bounced Emails"}
+          <Button
+            variant="warning"
+            onClick={fetchAllBouncedEmails}
+            disabled={fetchingAllBounce}
+          >
+            {fetchingAllBounce
+              ? "Fetching Bounced Emails..."
+              : "Select All Bounced Emails"}
           </Button>
           <Button
             variant="danger"
             onClick={markInactive}
             disabled={selectedBouncedEmails.length === 0}
           >
-            🚫 Mark Selected as Inactive ({selectedBouncedEmails.length})
+          Mark Selected as Inactive (
+            {selectedBouncedEmails.length})
           </Button>
         </div>
       )}
 
-      {/* 📋 Table */}
+      {/* Table */}
       {loading ? (
         <div className="text-center">
           <Spinner animation="border" />
@@ -224,22 +284,30 @@ export default function EmailTrackingPage() {
             <tbody>
               {records.map((rec, idx) => {
                 const isBounced = rec.status === "Bounce";
-                const isChecked = selectedBouncedEmails.includes(rec.email);
+                const isChecked = selectedBouncedEmails.includes(
+                  rec.email
+                );
                 return (
-                  <tr key={rec.messageId + idx}>
+                  <tr key={`${rec.messageId}-${idx}`}>
                     <td>
                       {isBounced && (
                         <Form.Check
                           type="checkbox"
                           checked={isChecked}
-                          onChange={() => toggleEmailSelection(rec.email)}
+                          onChange={() =>
+                            toggleEmailSelection(rec.email)
+                          }
                         />
                       )}{" "}
                       {(page - 1) * limit + idx + 1}
                     </td>
                     <td>{rec.email}</td>
                     <td>
-                      <span className={`badge bg-${statusColor(rec.status)}`}>
+                      <span
+                        className={`badge bg-${statusColor(
+                          rec.status
+                        )}`}
+                      >
                         {rec.status}
                       </span>
                     </td>
@@ -248,15 +316,18 @@ export default function EmailTrackingPage() {
                     </td>
                     <td>{rec.ip || "-"}</td>
                     <td style={{ maxWidth: "200px", overflowWrap: "break-word" }}>
-                      {rec.userAgent || "-"}</td>
-                    <td>{new Date(rec.eventTime).toLocaleString()}</td>
+                      {rec.userAgent || "-"}
+                    </td>
+                    <td>
+                      {new Date(rec.eventTime).toLocaleString()}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </Table>
 
-          {/* 🔁 Pagination */}
+          {/* Pagination */}
           <div className="d-flex justify-content-between align-items-center">
             <Button
               variant="outline-secondary"
@@ -282,7 +353,6 @@ export default function EmailTrackingPage() {
   );
 }
 
-// ✅ Reusable summary badge
 function SummaryBadge({ label, value, color = "secondary" }) {
   return (
     <span className={`badge bg-${color} fs-6`}>

@@ -1,5 +1,4 @@
-"use client";
-
+'use client'
 import React, { useEffect, useState } from "react";
 import {
   Table,
@@ -19,24 +18,25 @@ import Link from "next/link";
 
 const ITEMS_PER_PAGE = 20;
 
-const EmailSubscriptionTable = () => {
+export default function EmailSubscriptionTable() {
   const [subscribers, setSubscribers] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortOrder, setSortOrder] = useState("none");
 
+  // Fetch subscribers
   const fetchSubscribers = async () => {
     try {
       const response = await axios.get("/api/admin/emails");
-
-      const result = Array.isArray(response.data)
+      const data = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data.data)
-          ? response.data.data
-          : [];
-
-      setSubscribers(result);
+        ? response.data.data
+        : [];
+      setSubscribers(data);
     } catch (err) {
       console.error("Failed to fetch subscribers:", err);
       setSubscribers([]);
@@ -45,12 +45,32 @@ const EmailSubscriptionTable = () => {
     }
   };
 
+  // Fetch categories
+  const fetchCategories = async () => {
+    try {
+      const res = await axios.get("/api/admin/categories");
+      setCategories(res.data);
+    } catch (err) {
+      console.error("Failed to fetch categories:", err);
+      setCategories([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+    fetchSubscribers();
+  }, []);
+
+  // Toggle subscribe status via PUT /api/admin/emails/[email]
   const toggleStatus = async (email) => {
     try {
-      await axios.put(`/api/admin/emails/${email}`);
+      const res = await axios.put(
+        `/api/admin/emails/${encodeURIComponent(email)}`
+      );
+      const { subscribe: newSub } = res.data;
       setSubscribers((prev) =>
-        prev.map((item) =>
-          item.email === email ? { ...item, subscribe: item.subscribe ? 0 : 1 } : item
+        prev.map((s) =>
+          s.email === email ? { ...s, subscribe: newSub } : s
         )
       );
     } catch (err) {
@@ -58,70 +78,111 @@ const EmailSubscriptionTable = () => {
     }
   };
 
-  useEffect(() => {
-    fetchSubscribers();
-  }, []);
+  // Update category via same PUT endpoint with { category_id }
+  const updateCategory = async (email, newCatId) => {
+    try {
+      const res = await axios.put(
+        `/api/admin/emails/${encodeURIComponent(email)}`,
+        { category_id: newCatId }
+      );
+      const { category_id } = res.data;
+      setSubscribers((prev) =>
+        prev.map((s) =>
+          s.email === email ? { ...s, category_id } : s
+        )
+      );
+    } catch (err) {
+      console.error("Category update failed:", err);
+      // Optionally show a toast or alert here
+    }
+  };
 
+  // Sort toggle
   const handleSortToggle = () => {
     setSortOrder((prev) =>
       prev === "none" ? "asc" : prev === "asc" ? "desc" : "none"
     );
   };
 
-  const filteredSubscribers = subscribers
-    .filter((s) => s.email.toLowerCase().includes(searchTerm.toLowerCase()))
+  // Category filter change
+  const handleCategoryChange = (e) => {
+    setSelectedCategory(e.target.value);
+    setCurrentPage(1);
+  };
+
+  // Apply filters, search, sort
+  const filtered = subscribers
+    .filter((s) =>
+      selectedCategory === "all"
+        ? true
+        : s.category_id === parseInt(selectedCategory, 10)
+    )
+    .filter((s) =>
+      s.email.toLowerCase().includes(searchTerm.toLowerCase())
+    )
     .sort((a, b) => {
       if (sortOrder === "asc") return a.subscribe - b.subscribe;
       if (sortOrder === "desc") return b.subscribe - a.subscribe;
       return 0;
     });
 
-  const indexOfLastItem = currentPage * ITEMS_PER_PAGE;
-  const indexOfFirstItem = indexOfLastItem - ITEMS_PER_PAGE;
-  const currentItems = filteredSubscribers.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredSubscribers.length / ITEMS_PER_PAGE);
+  const indexOfLast = currentPage * ITEMS_PER_PAGE;
+  const indexOfFirst = indexOfLast - ITEMS_PER_PAGE;
+  const currentItems = filtered.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
 
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
+  const activeCount = filtered.filter((s) => s.subscribe === 1).length;
+  const inactiveCount = filtered.filter((s) => s.subscribe === 0).length;
 
   const renderPagination = () => {
     const items = [];
-    const maxPagesToShow = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
-    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
-
-    if (endPage - startPage < maxPagesToShow - 1) {
-      startPage = Math.max(1, endPage - maxPagesToShow + 1);
+    const maxShow = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxShow / 2));
+    let end = Math.min(totalPages, start + maxShow - 1);
+    if (end - start < maxShow - 1) {
+      start = Math.max(1, end - maxShow + 1);
     }
-
-    if (startPage > 1) {
-      items.push(<Pagination.First key="first" onClick={() => handlePageChange(1)} />);
-      items.push(<Pagination.Prev key="prev" onClick={() => handlePageChange(currentPage - 1)} />);
+    if (start > 1) {
+      items.push(
+        <Pagination.First
+          key="first"
+          onClick={() => setCurrentPage(1)}
+        />
+      );
+      items.push(
+        <Pagination.Prev
+          key="prev"
+          onClick={() => setCurrentPage(currentPage - 1)}
+        />
+      );
     }
-
-    for (let number = startPage; number <= endPage; number++) {
+    for (let num = start; num <= end; num++) {
       items.push(
         <Pagination.Item
-          key={number}
-          active={number === currentPage}
-          onClick={() => handlePageChange(number)}
+          key={num}
+          active={num === currentPage}
+          onClick={() => setCurrentPage(num)}
         >
-          {number}
+          {num}
         </Pagination.Item>
       );
     }
-
-    if (endPage < totalPages) {
-      items.push(<Pagination.Next key="next" onClick={() => handlePageChange(currentPage + 1)} />);
-      items.push(<Pagination.Last key="last" onClick={() => handlePageChange(totalPages)} />);
+    if (end < totalPages) {
+      items.push(
+        <Pagination.Next
+          key="next"
+          onClick={() => setCurrentPage(currentPage + 1)}
+        />
+      );
+      items.push(
+        <Pagination.Last
+          key="last"
+          onClick={() => setCurrentPage(totalPages)}
+        />
+      );
     }
-
     return <Pagination>{items}</Pagination>;
   };
-
-  const activeCount = subscribers.filter((s) => s.subscribe === 1).length;
-  const inactiveCount = subscribers.filter((s) => s.subscribe === 0).length;
 
   if (loading) {
     return (
@@ -134,21 +195,26 @@ const EmailSubscriptionTable = () => {
 
   return (
     <div className="container mt-4">
+      {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3>Bulk Email Sender</h3>
-
         <Link href="/">
           <Button variant="secondary">← Back to Home</Button>
         </Link>
       </div>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h4 className="mb-3">Email Subscribers</h4>
+        <h4>Email Subscribers</h4>
         <Link href="/admin/upload-excel">
           <Button variant="primary">Upload Emails</Button>
         </Link>
+         <Link href="/emails/category">
+          <Button variant="primary">Create Categories</Button>
+        </Link>
       </div>
+
+      {/* Filters */}
       <Row className="mb-3 align-items-center">
-        <Col md={6}>
+        <Col md={4}>
           <Form.Control
             type="text"
             placeholder="Search email..."
@@ -159,28 +225,50 @@ const EmailSubscriptionTable = () => {
             }}
           />
         </Col>
-        <Col md={6} className="text-md-end mt-2 mt-md-0">
-          <Badge bg="success" className="me-2">Active: {activeCount}</Badge>
-          <Badge bg="secondary">Inactive: {inactiveCount}</Badge>
+        <Col md={4}>
+          <Form.Select
+            value={selectedCategory}
+            onChange={handleCategoryChange}
+          >
+            <option value="all">All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </Form.Select>
+        </Col>
+        <Col md={4} className="text-md-end mt-2 mt-md-0">
+          <Badge bg="success" className="me-2">
+            Active: {activeCount}
+          </Badge>
+          <Badge bg="secondary">
+            Inactive: {inactiveCount}
+          </Badge>
         </Col>
       </Row>
 
+      {/* Table */}
       <Table bordered hover responsive>
         <thead className="table-dark">
           <tr>
             <th>S.No</th>
             <th>Email</th>
-            <th style={{ cursor: "pointer" }} onClick={handleSortToggle}>
+            <th>Category</th>
+            <th
+              style={{ cursor: "pointer" }}
+              onClick={handleSortToggle}
+            >
               <OverlayTrigger
                 placement="top"
                 overlay={
                   <Tooltip>
-                    Click to sort by status:{" "}
+                    Sort by status:{" "}
                     {sortOrder === "none"
-                      ? "Active First"
+                      ? "Active first"
                       : sortOrder === "asc"
-                        ? "Inactive First"
-                        : "No Sorting"}
+                      ? "Inactive first"
+                      : "No sort"}
                   </Tooltip>
                 }
               >
@@ -197,24 +285,55 @@ const EmailSubscriptionTable = () => {
         <tbody>
           {currentItems.length === 0 ? (
             <tr>
-              <td colSpan={3} className="text-center">No matching subscribers found.</td>
+              <td colSpan={4} className="text-center">
+                No matching subscribers found.
+              </td>
             </tr>
           ) : (
-            currentItems.map((subscriber, index) => {
+            currentItems.map((subscriber, idx) => {
               const isActive = subscriber.subscribe === 1;
               const badgeColor = isActive ? "success" : "secondary";
-              const hoverMsg = isActive ? "Click to deactivate" : "Click to activate";
+              const hoverMsg = isActive
+                ? "Click to deactivate"
+                : "Click to activate";
 
               return (
                 <tr key={subscriber.email}>
-                  <td>{indexOfFirstItem + index + 1}</td>
+                  <td>{indexOfFirst + idx + 1}</td>
                   <td>{subscriber.email}</td>
                   <td>
-                    <OverlayTrigger placement="top" overlay={<Tooltip>{hoverMsg}</Tooltip>}>
+                    <Form.Select
+                      size="sm"
+                      value={subscriber.category_id}
+                      onChange={(e) =>
+                        updateCategory(
+                          subscriber.email,
+                          parseInt(e.target.value, 10)
+                        )
+                      }
+                    >
+                      <option value={1}>General</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </td>
+                  <td>
+                    <OverlayTrigger
+                      placement="top"
+                      overlay={<Tooltip>{hoverMsg}</Tooltip>}
+                    >
                       <Badge
                         bg={badgeColor}
-                        style={{ cursor: "pointer", fontSize: "0.9rem" }}
-                        onClick={() => toggleStatus(subscriber.email)}
+                        style={{
+                          cursor: "pointer",
+                          fontSize: "0.9rem",
+                        }}
+                        onClick={() =>
+                          toggleStatus(subscriber.email)
+                        }
                       >
                         {isActive ? "Active" : "Inactive"}
                       </Badge>
@@ -227,11 +346,12 @@ const EmailSubscriptionTable = () => {
         </tbody>
       </Table>
 
+      {/* Pagination */}
       {totalPages > 1 && (
-        <div className="d-flex justify-content-center">{renderPagination()}</div>
+        <div className="d-flex justify-content-center">
+          {renderPagination()}
+        </div>
       )}
     </div>
   );
-};
-
-export default EmailSubscriptionTable;
+}
