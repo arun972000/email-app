@@ -207,7 +207,7 @@ export default function EmailSubscriptionTable() {
         <Link href="/admin/upload-excel">
           <Button variant="primary">Upload Emails</Button>
         </Link>
-         <Link href="/emails/category">
+        <Link href="/emails/category">
           <Button variant="primary">Create Categories</Button>
         </Link>
       </div>
@@ -312,7 +312,6 @@ export default function EmailSubscriptionTable() {
                         )
                       }
                     >
-                      <option value={1}>General</option>
                       {categories.map((cat) => (
                         <option key={cat.id} value={cat.id}>
                           {cat.name}
