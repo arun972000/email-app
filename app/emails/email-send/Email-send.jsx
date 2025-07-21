@@ -20,34 +20,40 @@ import Link from "next/link";
 
 const BulkEmailSender = () => {
   // Email content
-  const [subject, setSubject]         = useState("");
+  const [subject, setSubject] = useState("");
   const [htmlContent, setHtmlContent] = useState("");
-  const [rateLimit, setRateLimit]     = useState(10);
+  const [rateLimit, setRateLimit] = useState(10);
+
+  // Test‐email state
+  const [testEmail, setTestEmail] = useState("");
+  const [testLoading, setTestLoading] = useState(false);
+  const [testSent, setTestSent] = useState(false);
+  const [testError, setTestError] = useState("");
 
   // Send state
   const [sendMode, setSendMode] = useState("bulk"); // 'bulk' | 'category'
-  const [sent, setSent]         = useState(false);
-  const [error, setError]       = useState("");
-  const [loading, setLoading]   = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // Subscribers & categories
   const [subscribers, setSubscribers] = useState([]);
   const [loadingSubs, setLoadingSubs] = useState(true);
-  const [categories, setCategories]   = useState([]);
-  const [catLoading, setCatLoading]   = useState(true);
+  const [categories, setCategories] = useState([]);
+  const [catLoading, setCatLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState(null);
 
   // Password modal
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordInput, setPasswordInput]         = useState("");
-  const [passwordError, setPasswordError]         = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const STATIC_PASSWORD = "raceauto@123";
 
   // Excel upload
-  const [excelFile, setExcelFile]           = useState(null);
+  const [excelFile, setExcelFile] = useState(null);
   const [excelSendStatus, setExcelSendStatus] = useState(null);
-  const [excelError, setExcelError]         = useState(null);
-  const [excelLoading, setExcelLoading]     = useState(false);
+  const [excelError, setExcelError] = useState(null);
+  const [excelLoading, setExcelLoading] = useState(false);
 
   // Tabs
   const [activeTab, setActiveTab] = useState("subscribers");
@@ -86,7 +92,7 @@ const BulkEmailSender = () => {
     };
   };
 
-  // Open modal
+  // Bulk/category send
   const handleSend = (mode) => {
     setSendMode(mode);
     setPasswordInput("");
@@ -94,7 +100,6 @@ const BulkEmailSender = () => {
     setShowPasswordModal(true);
   };
 
-  // Confirm & send
   const confirmPasswordAndSend = async () => {
     if (passwordInput !== STATIC_PASSWORD) {
       setPasswordError("Incorrect password");
@@ -106,21 +111,16 @@ const BulkEmailSender = () => {
     setSent(false);
 
     try {
-      let res;
-      const payload = {
-        subject,
-        message: htmlContent,
-        rateLimit,
-      };
+      const payload = { subject, message: htmlContent, rateLimit };
+      const url = sendMode === "bulk"
+        ? "/api/admin/email-send"
+        : "/api/admin/email-send/category";
 
-      if (sendMode === "bulk") {
-        res = await axios.post("/api/admin/email-send", payload);
-      } else {
-        res = await axios.post("/api/admin/email-send/category", {
-          ...payload,
-          category_id: selectedCategory,
-        });
-      }
+      const res = await axios.post(url,
+        sendMode === "bulk"
+          ? payload
+          : { ...payload, category_id: selectedCategory }
+      );
 
       if (res.data.success) {
         setSent(true);
@@ -137,18 +137,48 @@ const BulkEmailSender = () => {
     }
   };
 
+  // Test‐email send
+  const handleTestEmailSend = async () => {
+    if (!testEmail || !subject || !htmlContent) return;
+    setTestLoading(true);
+    setTestSent(false);
+    setTestError("");
+
+    try {
+      const res = await axios.post("/api/admin/email-send/test-email", {
+        recipient: testEmail,
+        subject,
+        message: htmlContent,
+      });
+
+      if (res.data.success) {
+        setTestSent(true);
+        setTestEmail("");
+      } else {
+        setTestError(res.data.error || "Failed to send test email.");
+      }
+    } catch (err) {
+      console.error("Test email error:", err);
+      setTestError(err.response?.data?.error || "Something went wrong.");
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
   // Excel upload
   const handleExcelUpload = async () => {
     if (!excelFile || !subject || !htmlContent) return;
     setExcelLoading(true);
     setExcelSendStatus(null);
     setExcelError(null);
+
     try {
       const formData = new FormData();
       formData.append("file", excelFile);
       formData.append("subject", subject);
       formData.append("message", htmlContent);
-      formData.append("rateLimit", rateLimit);
+      formData.append("rateLimit", rateLimit.toString());
+
       const res = await axios.post("/api/admin/email-send/excel", formData);
       if (res.data.success) {
         setExcelSendStatus(res.data.message);
@@ -165,7 +195,7 @@ const BulkEmailSender = () => {
   };
 
   // Summary counts
-  const subCount   = subscribers.filter((s) => s.subscribe === 1).length;
+  const subCount = subscribers.filter((s) => s.subscribe === 1).length;
   const unsubCount = subscribers.filter((s) => s.subscribe === 0).length;
 
   return (
@@ -257,9 +287,7 @@ const BulkEmailSender = () => {
                     <Col sm="9">
                       <Form.Select
                         value={selectedCategory || ""}
-                        onChange={(e) =>
-                          setSelectedCategory(+e.target.value)
-                        }
+                        onChange={(e) => setSelectedCategory(+e.target.value)}
                       >
                         {categories.map((c) => (
                           <option key={c.id} value={c.id}>
@@ -292,7 +320,7 @@ const BulkEmailSender = () => {
         </Tab>
       </Tabs>
 
-      {/* Form */}
+      {/* Form & Test Email */}
       <Row>
         <Col md={6}>
           <Card className="mb-4">
@@ -327,25 +355,49 @@ const BulkEmailSender = () => {
                 />
               </Form.Group>
 
-              {activeTab === "subscribers" && (
-                <Button
-                  variant="primary"
-                  disabled={!subject || !htmlContent || loading}
-                  onClick={() => handleSend("bulk")}
-                >
-                  {loading ? <Spinner size="sm" /> : "Send Bulk Email"}
-                </Button>
-              )}
-              {activeTab === "category" && (
-                <Button
-                  variant="warning"
-                  disabled={!subject || !htmlContent || loading || selectedCategory == null}
-                  onClick={() => handleSend("category")}
-                >
-                  {loading ? <Spinner size="sm" /> : "Send to Category"}
-                </Button>
-              )}
+              {/* Test Email */}
+              <Form.Group className="mb-3">
+                <Form.Label>Test Email Address</Form.Label>
+                <Form.Control
+                  type="email"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  placeholder="e.g. you@domain.com"
+                />
+              </Form.Group>
 
+              <div className="d-flex gap-2">
+                {/* Bulk/Category Send */}
+                {activeTab === "subscribers" && (
+                  <Button
+                    variant="primary"
+                    disabled={!subject || !htmlContent || loading}
+                    onClick={() => handleSend("bulk")}
+                  >
+                    {loading ? <Spinner size="sm" /> : "Send Bulk Email"}
+                  </Button>
+                )}
+                {activeTab === "category" && (
+                  <Button
+                    variant="warning"
+                    disabled={!subject || !htmlContent || loading || selectedCategory == null}
+                    onClick={() => handleSend("category")}
+                  >
+                    {loading ? <Spinner size="sm" /> : "Send to Category"}
+                  </Button>
+                )}
+
+                {/* Test Email Button */}
+                <Button
+                  variant="outline-info"
+                  disabled={!subject || !htmlContent || !testEmail || testLoading}
+                  onClick={handleTestEmailSend}
+                >
+                  {testLoading ? <Spinner size="sm" /> : "Send Test Email"}
+                </Button>
+              </div>
+
+              {/* Feedback */}
               {sent && (
                 <Alert variant="success" className="mt-3">
                   ✅ Emails sent successfully!
@@ -354,6 +406,16 @@ const BulkEmailSender = () => {
               {error && (
                 <Alert variant="danger" className="mt-3">
                   ❌ {error}
+                </Alert>
+              )}
+              {testSent && (
+                <Alert variant="info" className="mt-3">
+                  Test email sent successfully!
+                </Alert>
+              )}
+              {testError && (
+                <Alert variant="danger" className="mt-3">
+                  ❌ {testError}
                 </Alert>
               )}
             </Card.Body>
@@ -393,7 +455,7 @@ const BulkEmailSender = () => {
         centered
       >
         <Modal.Header closeButton>
-          <Modal.Title> Confirm Admin Password</Modal.Title>
+          <Modal.Title>Confirm Admin Password</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form.Group>
@@ -409,10 +471,7 @@ const BulkEmailSender = () => {
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowPasswordModal(false)}
-          >
+          <Button variant="secondary" onClick={() => setShowPasswordModal(false)}>
             Cancel
           </Button>
           <Button variant="primary" onClick={confirmPasswordAndSend}>
