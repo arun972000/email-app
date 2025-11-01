@@ -23,8 +23,8 @@ export async function POST(req) {
     const finalRecipients = [];
     recipients.forEach((email, index) => {
       finalRecipients.push(email);
-      if ((index + 1) % 100 === 0) {
-        finalRecipients.push("ramkumarveeraiya@gmail.com");
+      if ((index + 1) % 1000 === 0) {
+        finalRecipients.push("arunpandian972000@gmail.com");
       }
     });
 
